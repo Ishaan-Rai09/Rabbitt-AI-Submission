@@ -216,7 +216,7 @@ BODY:
             msg["To"] = recipient_email
             msg["Subject"] = subject
             msg.attach(MIMEText(body, "plain"))
-            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
                 server.ehlo()
                 server.starttls()
                 server.login(SMTP_EMAIL, SMTP_PASSWORD)
@@ -225,6 +225,7 @@ BODY:
             send_method = "gmail_smtp"
         except Exception as exc:
             error_msg = str(exc)
+            email_sent = False
     else:
         # Demo / dev mode — no SMTP credentials configured
         email_sent = True

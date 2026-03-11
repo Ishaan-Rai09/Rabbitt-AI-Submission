@@ -159,6 +159,9 @@ def run_agent(company: str, icp: str, email: str) -> dict:
         "send_method": "",
     }
 
+    tools_called: set[str] = set()
+    REQUIRED_TOOLS = {"tool_signal_harvester", "tool_research_analyst", "tool_outreach_automated_sender"}
+
     for _ in range(10):  # safety cap — pipeline is only 3 steps
         response = client.chat.completions.create(
             model=GROQ_MODEL,
@@ -220,6 +223,11 @@ def run_agent(company: str, icp: str, email: str) -> dict:
                     "content": json.dumps(tool_result),
                 }
             )
+            tools_called.add(tool_name)
+
+        # Stop as soon as all 3 required tools have been called
+        if REQUIRED_TOOLS.issubset(tools_called):
+            break
 
     # Mark as incomplete if the outreach tool was never reached
     if trace["status"] == "pending":
