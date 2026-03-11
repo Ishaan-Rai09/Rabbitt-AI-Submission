@@ -55,21 +55,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 # ---------------------------------------------------------------------------
-# CORS — restrict to known frontend origins; fall back to localhost for dev
+# CORS — allow all origins; restrict by setting ALLOWED_ORIGINS env var (comma-separated)
 # ---------------------------------------------------------------------------
 
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
-if _raw_origins.strip():
-    _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
+if _raw_origins.strip() == "*" or not _raw_origins.strip():
+    _allowed_origins = ["*"]
 else:
-    _allowed_origins = ["*"]  # open by default; set ALLOWED_ORIGINS in prod to restrict
+    _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
     max_age=600,
 )
 
