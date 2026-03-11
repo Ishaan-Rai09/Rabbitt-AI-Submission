@@ -120,12 +120,12 @@ _UUID_RE = re.compile(
 
 
 def _run_job(job_id: str, company: str, icp: str, email: str) -> None:
+    import traceback
     try:
         result = run_agent(company=company, icp=icp, email=email)
         _jobs[job_id] = {"status": "done", "result": result}
-    except Exception:
-        # Never surface internal error details to the client
-        _jobs[job_id] = {"status": "error", "error": "Pipeline execution failed. Check server logs."}
+    except Exception as exc:
+        _jobs[job_id] = {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
 
 # ---------------------------------------------------------------------------
 # Schemas
