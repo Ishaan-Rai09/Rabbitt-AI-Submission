@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useRef } from 'react'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const API_URL = import.meta.env.VITE_API_URL || 'https://rabbitt-ai-submission.onrender.com'
 
 // ── Typewriter hook ──────────────────────────────────────────────────────────
 function useTypewriter(text, speed = 14, startDelay = 0) {
