@@ -58,15 +58,12 @@ app.add_middleware(SecurityHeadersMiddleware)
 # CORS — explicit origin list, no wildcard
 # ---------------------------------------------------------------------------
 
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,https://rabbitt-ai-submission.vercel.app")
-_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization"],
+    allow_headers=["Content-Type"],
     max_age=600,
 )
 
