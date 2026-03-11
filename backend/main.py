@@ -55,18 +55,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 # ---------------------------------------------------------------------------
-# CORS — allow all origins; restrict by setting ALLOWED_ORIGINS env var (comma-separated)
+# CORS — open to all origins (set ALLOWED_ORIGINS in env to restrict)
 # ---------------------------------------------------------------------------
-
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "*")
-if _raw_origins.strip() == "*" or not _raw_origins.strip():
-    _allowed_origins = ["*"]
-else:
-    _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
