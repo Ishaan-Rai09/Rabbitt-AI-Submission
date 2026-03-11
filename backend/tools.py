@@ -1,17 +1,19 @@
 """
 FireReach Tool Layer
 Implements the three agent tools:
-  1. tool_signal_harvester   — live company signals via NewsAPI
+  1. tool_signal_harvester   — live company signals via NewsAPI + Google News RSS + Hacker News
   2. tool_research_analyst   — strategic account brief via Groq (Llama 3.3)
   3. tool_outreach_automated_sender — email generation + Gmail SMTP delivery
 """
 
 import os
 import smtplib
+import urllib.parse
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 import httpx
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -41,12 +43,25 @@ def _get_groq() -> Groq:
 def tool_signal_harvester(company_name: str) -> dict:
     """
     Fetch live buyer signals for a target company.
-    Uses NewsAPI when a key is configured; falls back to simulated signals
-    so the agent pipeline still runs during demos without API keys.
+    Combines three sources in priority order:
+      1. NewsAPI (commercial, requires NEWSAPI_KEY)
+      2. Google News RSS  (public, no key needed)
+      3. Hacker News Algolia API (public, no key needed)
+    Falls back to simulated signals when all live sources return nothing.
     """
     signals: list[str] = []
-    source = "api"
+    sources_used: list[str] = []
+    seen: set[str] = set()
 
+    def _add(title: str) -> bool:
+        key = title.lower().strip()
+        if key not in seen and len(signals) < 8:
+            seen.add(key)
+            signals.append(title)
+            return True
+        return False
+
+    # ── 1. NewsAPI ────────────────────────────────────────────────────────
     if NEWSAPI_KEY:
         try:
             with httpx.Client(timeout=10) as client:
@@ -62,24 +77,31 @@ def tool_signal_harvester(company_name: str) -> dict:
                 )
             data = resp.json()
             if data.get("status") == "ok":
+                added = 0
                 for article in data.get("articles", []):
                     title = (article.get("title") or "").strip()
-                    # Prefer articles that mention the company name directly
-                    if title and company_name.lower() in title.lower():
-                        signals.append(title)
-                    if len(signals) >= 5:
-                        break
-                # Fall back to any titles if none matched by name
-                if not signals:
-                    for article in data.get("articles", [])[:5]:
-                        title = (article.get("title") or "").strip()
-                        if title:
-                            signals.append(title)
+                    if title and _add(title):
+                        added += 1
+                if added:
+                    sources_used.append("NewsAPI")
         except Exception:
-            signals = []
+            pass
 
+    # ── 2. Google News RSS scraping ───────────────────────────────────────
+    gn_titles = _scrape_google_news_rss(company_name)
+    added_gn = sum(1 for t in gn_titles if _add(t))
+    if added_gn:
+        sources_used.append("Google News")
+
+    # ── 3. Hacker News Algolia API ────────────────────────────────────────
+    hn_titles = _scrape_hackernews(company_name)
+    added_hn = sum(1 for t in hn_titles if _add(t))
+    if added_hn:
+        sources_used.append("Hacker News")
+
+    # ── Fallback: simulated signals ───────────────────────────────────────
     if not signals:
-        source = "simulated"
+        sources_used = ["simulated"]
         signals = [
             f"{company_name} recently announced strong ARR growth",
             f"{company_name} is actively hiring senior engineering and GTM roles",
@@ -90,9 +112,78 @@ def tool_signal_harvester(company_name: str) -> dict:
 
     return {
         "company": company_name,
-        "signals": signals[:5],
-        "source": source,
+        "signals": signals[:6],
+        "source": ", ".join(sources_used) if sources_used else "simulated",
     }
+
+
+# ---------------------------------------------------------------------------
+# Web Scraping helpers — Google News RSS + Hacker News Algolia
+# ---------------------------------------------------------------------------
+
+def _scrape_google_news_rss(company_name: str) -> list[str]:
+    """
+    Scrape Google News RSS feed for recent headlines about the target company.
+    No API key required — uses the public RSS endpoint.
+    Returns a list of clean headline strings.
+    """
+    try:
+        query = urllib.parse.quote(f'"{company_name}"')
+        url = (
+            f"https://news.google.com/rss/search"
+            f"?q={query}&hl=en-US&gl=US&ceid=US:en"
+        )
+        with httpx.Client(
+            timeout=12,
+            follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; FireReach/1.0; +https://firereach.io)"},
+        ) as client:
+            resp = client.get(url)
+        if resp.status_code != 200:
+            return []
+        soup = BeautifulSoup(resp.text, "xml")
+        results: list[str] = []
+        for item in soup.find_all("item")[:8]:
+            title_tag = item.find("title")
+            if not title_tag:
+                continue
+            raw = title_tag.get_text(strip=True)
+            # Strip the " - Source Name" suffix Google News appends
+            if " - " in raw:
+                raw = raw.rsplit(" - ", 1)[0].strip()
+            if raw and len(raw) > 10:
+                results.append(raw)
+        return results
+    except Exception:
+        return []
+
+
+def _scrape_hackernews(company_name: str) -> list[str]:
+    """
+    Query the Hacker News Algolia search API for story mentions.
+    Free, no API key required.
+    Returns a list of headline strings prefixed with [HN].
+    """
+    try:
+        with httpx.Client(timeout=8) as client:
+            resp = client.get(
+                "https://hn.algolia.com/api/v1/search",
+                params={
+                    "query": company_name,
+                    "tags": "story",
+                    "hitsPerPage": 6,
+                },
+            )
+        if resp.status_code != 200:
+            return []
+        results: list[str] = []
+        for hit in resp.json().get("hits", []):
+            title = (hit.get("title") or "").strip()
+            if title and company_name.lower() in title.lower():
+                results.append(f"[HN] {title}")
+        return results[:3]
+    except Exception:
+        return []
 
 
 # ---------------------------------------------------------------------------

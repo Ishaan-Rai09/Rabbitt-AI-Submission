@@ -161,6 +161,7 @@ class OutreachResponse(BaseModel):
     status: str
     company: str
     signals: List[str] = []
+    signal_source: str = ""
     account_brief: str = ""
     email_subject: str = ""
     email_body: str = ""

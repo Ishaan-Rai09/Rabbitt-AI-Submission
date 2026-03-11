@@ -152,6 +152,7 @@ def run_agent(company: str, icp: str, email: str) -> dict:
     trace: dict = {
         "company": company,
         "signals": [],
+        "signal_source": "",
         "account_brief": "",
         "email_subject": "",
         "email_body": "",
@@ -206,6 +207,7 @@ def run_agent(company: str, icp: str, email: str) -> dict:
             # Record results in trace
             if tool_name == "tool_signal_harvester":
                 trace["signals"] = tool_result.get("signals", [])
+                trace["signal_source"] = tool_result.get("source", "")
             elif tool_name == "tool_research_analyst":
                 trace["account_brief"] = tool_result.get("account_brief", "")
             elif tool_name == "tool_outreach_automated_sender":
