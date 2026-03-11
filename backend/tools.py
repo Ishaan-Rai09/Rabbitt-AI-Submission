@@ -20,8 +20,8 @@ from groq import Groq
 load_dotenv()
 
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY", "")
-SMTP_EMAIL = os.getenv("SMTP_EMAIL", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_EMAIL = os.getenv("SMTP_EMAIL", "ishaanrai18@gmail.com")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "ovvn fvnd baon zxrs")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
