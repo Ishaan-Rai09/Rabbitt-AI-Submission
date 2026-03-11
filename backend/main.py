@@ -62,8 +62,7 @@ _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
 if _raw_origins.strip():
     _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 else:
-    # Dev fallback — never used in production once ALLOWED_ORIGINS is set
-    _allowed_origins = ["http://localhost:5173", "http://localhost:3000"]
+    _allowed_origins = ["*"]  # open by default; set ALLOWED_ORIGINS in prod to restrict
 
 app.add_middleware(
     CORSMiddleware,
