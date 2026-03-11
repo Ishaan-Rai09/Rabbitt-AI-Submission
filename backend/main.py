@@ -16,7 +16,6 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from agent import run_agent
 
@@ -33,16 +32,6 @@ app = FastAPI(
     # Disable the default OpenAPI docs in production to reduce attack surface.
     docs_url="/docs" if os.getenv("ENV", "dev") != "production" else None,
     redoc_url=None,
-)
-
-# ---------------------------------------------------------------------------
-# Trusted host — reject HTTP Host header spoofing
-# ---------------------------------------------------------------------------
-
-_trusted_hosts = os.getenv("TRUSTED_HOSTS", "localhost,127.0.0.1,rabbitt-ai-submission.onrender.com").split(",")
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=[h.strip() for h in _trusted_hosts] + ["*"] if os.getenv("ENV") != "production" else [h.strip() for h in _trusted_hosts],
 )
 
 # ---------------------------------------------------------------------------
