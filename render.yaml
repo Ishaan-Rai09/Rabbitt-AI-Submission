@@ -17,6 +17,8 @@ services:
         sync: false
       - key: NEWSAPI_KEY
         sync: false
+      # Comma-separated list of allowed frontend origins, e.g.:
+      # https://firereach.vercel.app,https://www.firereach.io
       - key: ALLOWED_ORIGINS
         sync: false
       - key: TRUSTED_HOSTS

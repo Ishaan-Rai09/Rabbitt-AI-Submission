@@ -55,12 +55,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 
 # ---------------------------------------------------------------------------
-# CORS — explicit origin list, no wildcard
+# CORS — restrict to known frontend origins; fall back to localhost for dev
 # ---------------------------------------------------------------------------
+
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+if _raw_origins.strip():
+    _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+else:
+    # Dev fallback — never used in production once ALLOWED_ORIGINS is set
+    _allowed_origins = ["http://localhost:5173", "http://localhost:3000"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type"],
@@ -113,6 +120,22 @@ def _check_rate_limit(ip: str) -> None:
 _jobs: Dict[str, dict] = {}
 _executor = ThreadPoolExecutor(max_workers=4)
 
+# Job TTL — purge completed/errored jobs older than 15 minutes
+_JOB_TTL = 900  # seconds
+
+
+def _purge_old_jobs() -> None:
+    """Remove stale job entries to prevent unbounded memory growth."""
+    cutoff = time.time() - _JOB_TTL
+    stale = [
+        jid for jid, entry in _jobs.items()
+        if entry.get("status") in ("done", "error")
+        and entry.get("created_at", 0) < cutoff
+    ]
+    for jid in stale:
+        _jobs.pop(jid, None)
+
+
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
     re.IGNORECASE,
@@ -123,9 +146,9 @@ def _run_job(job_id: str, company: str, icp: str, email: str) -> None:
     import traceback
     try:
         result = run_agent(company=company, icp=icp, email=email)
-        _jobs[job_id] = {"status": "done", "result": result}
+        _jobs[job_id] = {"status": "done", "result": result, "created_at": time.time()}
     except Exception as exc:
-        _jobs[job_id] = {"status": "error", "error": f"{type(exc).__name__}: {exc}"}
+        _jobs[job_id] = {"status": "error", "error": f"{type(exc).__name__}: {exc}", "created_at": time.time()}
 
 # ---------------------------------------------------------------------------
 # Schemas
@@ -192,8 +215,11 @@ def run_outreach(request: OutreachRequest, http_request: Request):
     client_ip = http_request.client.host if http_request.client else "unknown"
     _check_rate_limit(client_ip)
 
+    # Opportunistically purge stale completed jobs
+    _purge_old_jobs()
+
     job_id = str(uuid.uuid4())
-    _jobs[job_id] = {"status": "running"}
+    _jobs[job_id] = {"status": "running", "created_at": time.time()}
 
     _executor.submit(
         _run_job,
