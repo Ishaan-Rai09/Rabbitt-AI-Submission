@@ -286,26 +286,37 @@ function EmailPanel({ subject, body }) {
 // ── Delivery Status ───────────────────────────────────────────────────────────
 function DeliveryStatus({ status, sendMethod, company }) {
   const sent = status === 'email_sent'
+  const isSmtpError = sendMethod?.startsWith('smtp_error')
+  const isSimulated = sendMethod === 'simulated'
+  const color = sent && !isSmtpError ? 'green' : isSmtpError ? 'orange' : 'red'
+  const borderCol = color === 'green' ? 'rgba(22,101,52,0.4)' : color === 'orange' ? 'rgba(154,52,18,0.4)' : 'rgba(127,29,29,0.4)'
+  const bgCol = color === 'green' ? 'rgba(5,46,22,0.15)' : color === 'orange' ? 'rgba(67,20,7,0.15)' : 'rgba(69,10,10,0.15)'
+  const label = isSmtpError ? 'SMTP auth failed — check App Password / Less Secure Apps'
+    : isSimulated ? 'Email previewed — add SMTP credentials to send for real'
+    : sent ? 'Email Delivered'
+    : 'Pipeline incomplete'
   return (
     <div className="flex items-center gap-4 border rounded-sm px-5 py-4"
       style={{
         animation: 'slideUp 0.4s cubic-bezier(0.16,1,0.3,1) 0.3s both',
-        borderColor: sent ? 'rgba(22,101,52,0.4)' : 'rgba(127,29,29,0.4)',
-        backgroundColor: sent ? 'rgba(5,46,22,0.15)' : 'rgba(69,10,10,0.15)',
+        borderColor: borderCol,
+        backgroundColor: bgCol,
       }}>
-      <Dot color={sent ? 'green' : 'red'} size="md" pulse={sent} />
+      <Dot color={color} size="md" pulse={sent && !isSmtpError} />
       <div className="flex-1">
-        <p className={`text-sm font-semibold ${sent ? 'text-green-300' : 'text-red-300'}`}>
-          {sent ? 'Email Delivered' : 'SMTP not configured — email previewed only'}
+        <p className={`text-sm font-semibold ${color === 'green' ? 'text-green-300' : color === 'orange' ? 'text-orange-300' : 'text-red-300'}`}>
+          {label}
         </p>
-        {sent && (
+        {sent && !isSmtpError && !isSimulated && (
           <p className="text-xs text-zinc-500 mt-0.5">
             Sent to <span className="text-zinc-300">{company}</span>
-            {sendMethod && <> · via <span className="text-zinc-300 capitalize">{sendMethod.replace('_', ' ')}</span></>}
+            {sendMethod && <> · via <span className="text-zinc-300 capitalize">{sendMethod.replace(/_/g, ' ')}</span></>}
           </p>
         )}
       </div>
-      <Badge variant={sent ? 'green' : 'red'}>{sent ? 'Sent' : 'Preview'}</Badge>
+      <Badge variant={sent && !isSmtpError && !isSimulated ? 'green' : color === 'orange' ? 'orange' : 'red'}>
+        {sent && !isSmtpError && !isSimulated ? 'Sent' : isSmtpError ? 'Auth Error' : 'Preview'}
+      </Badge>
     </div>
   )
 }

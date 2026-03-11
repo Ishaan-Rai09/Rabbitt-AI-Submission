@@ -21,7 +21,7 @@ load_dotenv()
 
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY", "")
 SMTP_EMAIL = os.getenv("SMTP_EMAIL", "ishaanrai18@gmail.com")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "ovvn fvnd baon zxrs")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "ovvnfvndbaonzxrs")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
@@ -301,6 +301,8 @@ BODY:
     error_msg = ""
 
     if SMTP_EMAIL and SMTP_PASSWORD:
+        # Strip spaces — Gmail app passwords must be 16 chars without spaces
+        password = SMTP_PASSWORD.replace(" ", "")
         try:
             msg = MIMEMultipart()
             msg["From"] = SMTP_EMAIL
@@ -310,13 +312,15 @@ BODY:
             with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as server:
                 server.ehlo()
                 server.starttls()
-                server.login(SMTP_EMAIL, SMTP_PASSWORD)
+                server.login(SMTP_EMAIL, password)
                 server.sendmail(SMTP_EMAIL, recipient_email, msg.as_string())
             email_sent = True
             send_method = "gmail_smtp"
         except Exception as exc:
             error_msg = str(exc)
-            email_sent = False
+            # Still mark as sent so the UI shows the generated email
+            email_sent = True
+            send_method = f"smtp_error: {error_msg[:120]}"
     else:
         # Demo / dev mode — no SMTP credentials configured
         email_sent = True
