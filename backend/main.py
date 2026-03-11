@@ -69,7 +69,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # CORS — explicit origin list, no wildcard
 # ---------------------------------------------------------------------------
 
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,https://rabbitt-ai-submission.vercel.app")
 _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
@@ -239,54 +239,6 @@ def get_job(job_id: str):
         return JobStatusResponse(job_id=job_id, status="error", error=entry["error"])
 
     return JobStatusResponse(job_id=job_id, status="running")
-
-
-# ---------------------------------------------------------------------------
-# App setup
-# ---------------------------------------------------------------------------
-
-app = FastAPI(
-    title="FireReach API",
-    description="Autonomous B2B outreach engine powered by Groq / Llama 3.3 function-calling.",
-    version="1.0.0",
-)
-
-# CORS — never use wildcard with allow_credentials=True (browsers reject it).
-# In production, set ALLOWED_ORIGINS to your exact Vercel URL, e.g.:
-#   ALLOWED_ORIGINS=https://firereach.vercel.app
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
-_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_allowed_origins,
-    allow_credentials=False,  # set True only if you add cookie-based auth
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
-)
-
-# ---------------------------------------------------------------------------
-# Simple in-memory rate limiter (per IP, max 5 requests / minute)
-# ---------------------------------------------------------------------------
-
-from collections import defaultdict
-import time
-
-_rate_store: Dict[str, list] = defaultdict(list)
-RATE_LIMIT = 5      # max requests
-RATE_WINDOW = 60    # per 60 seconds
-
-
-def _check_rate_limit(ip: str) -> None:
-    now = time.time()
-    window_start = now - RATE_WINDOW
-    _rate_store[ip] = [t for t in _rate_store[ip] if t > window_start]
-    if len(_rate_store[ip]) >= RATE_LIMIT:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Too many requests. Limit: {RATE_LIMIT} per {RATE_WINDOW}s.",
-        )
-    _rate_store[ip].append(now)
 
 # ---------------------------------------------------------------------------
 # Background job store (avoids 30s gateway timeouts)
